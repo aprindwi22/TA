@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Cool Box Monitor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+<style>
+body{
+  font-family: Arial, sans-serif;
+  background:#0f2027;
+  color:white;
+  margin:0;
+}
+.container{padding:20px}
+.card{
+  background:rgba(255,255,255,0.1);
+  padding:20px;
+  border-radius:12px;
+  margin-bottom:20px;
+}
+.temp{font-size:48px;font-weight:bold}
+button{
+  padding:8px 15px;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <button onclick="logout()">🚪 Logout</button>
+
+  <div class="card">
+    <h2>🌡️ Suhu Saat Ini</h2>
+    <div class="temp"><span id="tempC">--</span> °C</div>
+  </div>
+
+  <div class="card">
+    <h2>📈 Grafik History</h2>
+    <canvas id="tempChart"></canvas>
+  </div>
+</div>
+
+<script>
+var firebaseConfig = {
+  apiKey: "AIzaSyAJeM3MnB2dbbTNFV9htfDLJk1f8ZsIo34",
+  authDomain: "monitoring-coler-box.firebaseapp.com",
+  databaseURL: "https://monitoring-coler-box-default-rtdb.firebaseio.com",
+  projectId: "monitoring-coler-box"
+};
+firebase.initializeApp(firebaseConfig);
+
+const auth = firebase.auth();
+const db = firebase.database();
+
+/* 🔐 AUTH GUARD */
+auth.onAuthStateChanged(user=>{
+  if(!user){
+    window.location.href="index.html";
+  }
+});
+
+/* LOGOUT */
+function logout(){
+  auth.signOut().then(()=>{
+    window.location.href="index.html";
+  });
+}
+
+/* REALTIME SUHU */
+db.ref("coolbox/temperature_c").on("value", snap=>{
+  if(snap.exists()){
+    document.getElementById("tempC").innerText =
+      snap.val().toFixed(1);
+  }
+});
+
+/* CHART */
+const ctx = document.getElementById("tempChart");
+const chart = new Chart(ctx,{
+  type:"line",
+  data:{labels:[],datasets:[{label:"Suhu °C",data:[]}]}
+});
+
+db.ref("coolbox_history").limitToLast(20).on("value", snap=>{
+  if(!snap.exists()) return;
+  chart.data.labels=[];
+  chart.data.datasets[0].data=[];
+  Object.values(snap.val()).forEach(d=>{
+    chart.data.labels.push(new Date(d.timestamp).toLocaleTimeString());
+    chart.data.datasets[0].data.push(d.temperature_c);
+  });
+  chart.update();
+});
+</script>
+
+</body>
+</html>
