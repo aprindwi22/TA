@@ -54,6 +54,7 @@ button{
 </div>
 
 <script>
+/* ================= FIREBASE ================= */
 var firebaseConfig = {
   apiKey: "AIzaSyAJeM3MnB2dbbTNFV9htfDLJk1f8ZsIo34",
   authDomain: "monitoring-coler-box.firebaseapp.com",
@@ -65,21 +66,21 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.database();
 
-/* 🔐 AUTH GUARD */
+/* ================= AUTH GUARD ================= */
 auth.onAuthStateChanged(user=>{
   if(!user){
     window.location.href="index.html";
   }
 });
 
-/* LOGOUT */
+/* ================= LOGOUT ================= */
 function logout(){
   auth.signOut().then(()=>{
     window.location.href="index.html";
   });
 }
 
-/* REALTIME SUHU */
+/* ================= REALTIME SUHU ================= */
 db.ref("coolbox/temperature_c").on("value", snap=>{
   if(snap.exists()){
     document.getElementById("tempC").innerText =
@@ -87,23 +88,56 @@ db.ref("coolbox/temperature_c").on("value", snap=>{
   }
 });
 
-/* CHART */
-const ctx = document.getElementById("tempChart");
+/* ================= CHART ================= */
+const ctx = document.getElementById("tempChart").getContext("2d");
 const chart = new Chart(ctx,{
   type:"line",
-  data:{labels:[],datasets:[{label:"Suhu °C",data:[]}]}
+  data:{
+    labels:[],
+    datasets:[{
+      label:"Suhu (°C)",
+      data:[],
+      borderColor:"cyan",
+      fill:false,
+      tension:0.3
+    }]
+  },
+  options:{
+    responsive:true,
+    scales:{
+      y:{beginAtZero:false}
+    }
+  }
 });
 
-db.ref("coolbox_history").limitToLast(20).on("value", snap=>{
-  if(!snap.exists()) return;
-  chart.data.labels=[];
-  chart.data.datasets[0].data=[];
-  Object.values(snap.val()).forEach(d=>{
-    chart.data.labels.push(new Date(d.timestamp).toLocaleTimeString());
-    chart.data.datasets[0].data.push(d.temperature_c);
+/* ================= HISTORY ================= */
+db.ref("coolbox_history")
+  .orderByChild("timestamp")
+  .limitToLast(30)
+  .on("value", snap=>{
+    if(!snap.exists()) return;
+
+    chart.data.labels = [];
+    chart.data.datasets[0].data = [];
+
+    const data = snap.val();
+
+    Object.keys(data).forEach(key=>{
+      const d = data[key];
+      if(!d.timestamp) return;
+
+      const date = new Date(d.timestamp);
+      const label =
+        date.toLocaleDateString("id-ID") + " " +
+        date.getHours().toString().padStart(2,"0") + ":" +
+        date.getMinutes().toString().padStart(2,"0");
+
+      chart.data.labels.push(label);
+      chart.data.datasets[0].data.push(d.temperature_c);
+    });
+
+    chart.update();
   });
-  chart.update();
-});
 </script>
 
 </body>
